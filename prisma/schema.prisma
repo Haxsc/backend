@@ -7,7 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum UserRole {
+enum PerfilUsuario {
   ADMIN
   GERENTE
   ATENDENTE
@@ -15,7 +15,7 @@ enum UserRole {
   CLIENTE
 }
 
-enum OrderChannel {
+enum CanalPedido {
   APP
   TOTEM
   BALCAO
@@ -23,7 +23,7 @@ enum OrderChannel {
   WEB
 }
 
-enum OrderStatus {
+enum StatusPedido {
   AGUARDANDO_PAGAMENTO
   PAGO
   EM_PREPARO
@@ -32,14 +32,14 @@ enum OrderStatus {
   CANCELADO
 }
 
-enum PaymentStatus {
+enum StatusPagamento {
   PENDENTE
   APROVADO
   RECUSADO
   ESTORNADO
 }
 
-enum PaymentMethod {
+enum FormaPagamento {
   PIX
   CARTAO_CREDITO
   CARTAO_DEBITO
@@ -47,46 +47,13 @@ enum PaymentMethod {
   MOCK
 }
 
-enum InventoryMovementType {
+enum TipoMovimentacao {
   ENTRADA
   SAIDA
   AJUSTE
 }
 
-model User {
-  id               Int       @id @default(autoincrement())
-  name             String
-  email            String    @unique
-  passwordHash     String
-  role             UserRole  @default(CLIENTE)
-  active           Boolean   @default(true)
-  termsAcceptedAt  DateTime?
-  loyaltyConsentAt DateTime? // programa de fidelidade
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-
-  branchId           Int?
-  branch             Branch?             @relation(fields: [branchId], references: [id])
-  inventoryMovements InventoryMovement[]
-}
-
-model Branch {
-  id             Int      @id @default(autoincrement())
-  code           String   @unique // codigo da loja (ex.: "SP-001")
-  name           String
-  isHeadquarters Boolean  @default(false) // matriz da rede
-  city           String
-  state          String   @db.Char(2)
-  active         Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  users              User[]
-  inventoryMovements InventoryMovement[]
-  inventoryBalances  InventoryBalance[]
-}
-
-enum ProductCategory {
+enum CategoriaProduto {
   LANCHE
   BEBIDA
   SOBREMESA
@@ -94,49 +61,118 @@ enum ProductCategory {
   COMBO
 }
 
-model Product {
-  id          Int             @id @default(autoincrement())
-  sku         String          @unique // codigo de da rede (ex.: "LAN-001")
-  name        String
-  description String?
-  category    ProductCategory
-  price       Decimal         @db.Decimal(10, 2)
-  active      Boolean         @default(true)
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+model Usuario {
+  id                        Int           @id @default(autoincrement())
+  nome                      String
+  email                     String        @unique
+  senhaHash                 String
+  perfil                    PerfilUsuario @default(CLIENTE)
+  ativo                     Boolean       @default(true)
+  termosAceitosEm           DateTime? // aceite contratual dos termos de uso
+  consentimentoFidelidadeEm DateTime? // programa de fidelidade
+  criadoEm                  DateTime      @default(now())
+  atualizadoEm              DateTime      @updatedAt
 
-  inventoryMovements InventoryMovement[]
-  inventoryBalances  InventoryBalance[]
+  unidadeId Int?
+  unidade   Unidade? @relation(fields: [unidadeId], references: [id])
 
-  @@index([category, active])
+  movimentacoesEstoque MovimentacaoEstoque[]
+  pedidos              Pedido[]
 }
 
-model InventoryMovement {
-  id        Int                   @id @default(autoincrement())
-  type      InventoryMovementType
-  quantity  Int
-  reason    String?
-  branchId  Int
-  productId Int
-  userId    Int? 
-  createdAt DateTime              @default(now())
+model Unidade {
+  id           Int      @id @default(autoincrement())
+  codigo       String   @unique // codigo operacional da loja (ex.: "SP-001")
+  nome         String
+  ehMatriz     Boolean  @default(false) // matriz da rede
+  cidade       String
+  estado       String   @db.Char(2)
+  ativo        Boolean  @default(true)
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
 
-  branch  Branch  @relation(fields: [branchId], references: [id])
-  product Product @relation(fields: [productId], references: [id])
-  user    User?   @relation(fields: [userId], references: [id])
-
-  @@index([branchId, productId])
+  usuarios             Usuario[]
+  movimentacoesEstoque MovimentacaoEstoque[]
+  saldosEstoque        SaldoEstoque[]
+  pedidos              Pedido[]
 }
 
+model Produto {
+  id           Int              @id @default(autoincrement())
+  sku          String           @unique // codigo de catalogo da rede (ex.: "LAN-001")
+  nome         String
+  descricao    String?
+  categoria    CategoriaProduto
+  preco        Decimal          @db.Decimal(10, 2)
+  ativo        Boolean          @default(true)
+  criadoEm     DateTime         @default(now())
+  atualizadoEm DateTime         @updatedAt
 
-model InventoryBalance {
-  branchId  Int
-  productId Int
-  quantity  Int      @default(0)
-  updatedAt DateTime @updatedAt
+  movimentacoesEstoque MovimentacaoEstoque[]
+  saldosEstoque        SaldoEstoque[]
+  itensPedido          ItemPedido[]
 
-  branch  Branch  @relation(fields: [branchId], references: [id])
-  product Product @relation(fields: [productId], references: [id])
+  @@index([categoria, ativo])
+}
 
-  @@id([branchId, productId])
+model MovimentacaoEstoque {
+  id         Int              @id @default(autoincrement())
+  tipo       TipoMovimentacao
+  quantidade Int
+  motivo     String?
+  unidadeId  Int
+  produtoId  Int
+  usuarioId  Int? // nulo quando a baixa e automatica (venda)
+  criadoEm   DateTime         @default(now())
+
+  unidade Unidade  @relation(fields: [unidadeId], references: [id])
+  produto Produto  @relation(fields: [produtoId], references: [id])
+  usuario Usuario? @relation(fields: [usuarioId], references: [id])
+
+  @@index([unidadeId, produtoId])
+}
+
+model SaldoEstoque {
+  unidadeId    Int
+  produtoId    Int
+  quantidade   Int      @default(0)
+  atualizadoEm DateTime @updatedAt
+
+  unidade Unidade @relation(fields: [unidadeId], references: [id])
+  produto Produto @relation(fields: [produtoId], references: [id])
+
+  @@id([unidadeId, produtoId])
+}
+
+model Pedido {
+  id           Int          @id @default(autoincrement())
+  unidadeId    Int
+  clienteId    Int?
+  canalPedido  CanalPedido
+  status       StatusPedido @default(AGUARDANDO_PAGAMENTO)
+  total        Decimal      @db.Decimal(10, 2)
+  observacoes  String?
+  criadoEm     DateTime     @default(now())
+  atualizadoEm DateTime     @updatedAt
+
+  unidade Unidade      @relation(fields: [unidadeId], references: [id])
+  cliente Usuario?     @relation(fields: [clienteId], references: [id])
+  itens   ItemPedido[]
+
+  @@index([canalPedido])
+  @@index([status])
+  @@index([unidadeId, criadoEm])
+}
+
+model ItemPedido {
+  id            Int     @id @default(autoincrement())
+  pedidoId      Int
+  produtoId     Int
+  quantidade    Int
+  precoUnitario Decimal @db.Decimal(10, 2)
+
+  pedido  Pedido  @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  produto Produto @relation(fields: [produtoId], references: [id])
+
+  @@unique([pedidoId, produtoId])
 }
