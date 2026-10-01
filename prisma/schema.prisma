@@ -78,6 +78,7 @@ model Usuario {
 
   movimentacoesEstoque MovimentacaoEstoque[]
   pedidos              Pedido[]
+  logsAuditoria        LogAuditoria[]
 }
 
 model Unidade {
@@ -155,9 +156,11 @@ model Pedido {
   criadoEm     DateTime     @default(now())
   atualizadoEm DateTime     @updatedAt
 
-  unidade Unidade      @relation(fields: [unidadeId], references: [id])
-  cliente Usuario?     @relation(fields: [clienteId], references: [id])
-  itens   ItemPedido[]
+  unidade Unidade  @relation(fields: [unidadeId], references: [id])
+  cliente Usuario? @relation(fields: [clienteId], references: [id])
+
+  itens      ItemPedido[]
+  pagamentos Pagamento[]
 
   @@index([canalPedido])
   @@index([status])
@@ -175,4 +178,40 @@ model ItemPedido {
   produto Produto @relation(fields: [produtoId], references: [id])
 
   @@unique([pedidoId, produtoId])
+}
+
+model Pagamento {
+  id                Int             @id @default(autoincrement())
+  pedidoId          Int
+  forma             FormaPagamento
+  status            StatusPagamento @default(PENDENTE)
+  valor             Decimal         @db.Decimal(10, 2)
+  transacaoId       String?         @unique // id devolvido pelo gateway simulado
+  chaveIdempotencia String?         @unique // evita cobranca duplicada
+  payloadRetorno    Json? // resposta bruta do gateway
+  mensagemErro      String? // motivo da recusa, quando houver
+  processadoEm      DateTime?
+  criadoEm          DateTime        @default(now())
+  atualizadoEm      DateTime        @updatedAt
+
+  pedido Pedido @relation(fields: [pedidoId], references: [id])
+
+  @@index([pedidoId, status])
+}
+
+model LogAuditoria {
+  id        Int            @id @default(autoincrement())
+  acao      String
+  recurso   String
+  recursoId String?
+  usuarioId Int?
+  perfil    PerfilUsuario?
+  ip        String?
+  detalhes  Json?
+  criadoEm  DateTime       @default(now())
+
+  usuario Usuario? @relation(fields: [usuarioId], references: [id])
+
+  @@index([recurso, recursoId])
+  @@index([usuarioId, criadoEm])
 }
