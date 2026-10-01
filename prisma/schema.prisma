@@ -65,8 +65,9 @@ model User {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  branchId Int?
-  branch   Branch? @relation(fields: [branchId], references: [id])
+  branchId           Int?
+  branch             Branch?             @relation(fields: [branchId], references: [id])
+  inventoryMovements InventoryMovement[]
 }
 
 model Branch {
@@ -80,5 +81,62 @@ model Branch {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  users User[]
+  users              User[]
+  inventoryMovements InventoryMovement[]
+  inventoryBalances  InventoryBalance[]
+}
+
+enum ProductCategory {
+  LANCHE
+  BEBIDA
+  SOBREMESA
+  ACOMPANHAMENTO
+  COMBO
+}
+
+model Product {
+  id          Int             @id @default(autoincrement())
+  sku         String          @unique // codigo de da rede (ex.: "LAN-001")
+  name        String
+  description String?
+  category    ProductCategory
+  price       Decimal         @db.Decimal(10, 2)
+  active      Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  inventoryMovements InventoryMovement[]
+  inventoryBalances  InventoryBalance[]
+
+  @@index([category, active])
+}
+
+model InventoryMovement {
+  id        Int                   @id @default(autoincrement())
+  type      InventoryMovementType
+  quantity  Int
+  reason    String?
+  branchId  Int
+  productId Int
+  userId    Int? 
+  createdAt DateTime              @default(now())
+
+  branch  Branch  @relation(fields: [branchId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+  user    User?   @relation(fields: [userId], references: [id])
+
+  @@index([branchId, productId])
+}
+
+
+model InventoryBalance {
+  branchId  Int
+  productId Int
+  quantity  Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  branch  Branch  @relation(fields: [branchId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@id([branchId, productId])
 }
