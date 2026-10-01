@@ -1,0 +1,84 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  GERENTE
+  ATENDENTE
+  COZINHA
+  CLIENTE
+}
+
+enum OrderChannel {
+  APP
+  TOTEM
+  BALCAO
+  PICKUP
+  WEB
+}
+
+enum OrderStatus {
+  AGUARDANDO_PAGAMENTO
+  PAGO
+  EM_PREPARO
+  PRONTO
+  CONCLUIDO
+  CANCELADO
+}
+
+enum PaymentStatus {
+  PENDENTE
+  APROVADO
+  RECUSADO
+  ESTORNADO
+}
+
+enum PaymentMethod {
+  PIX
+  CARTAO_CREDITO
+  CARTAO_DEBITO
+  DINHEIRO
+  MOCK
+}
+
+enum InventoryMovementType {
+  ENTRADA
+  SAIDA
+  AJUSTE
+}
+
+model User {
+  id               Int       @id @default(autoincrement())
+  name             String
+  email            String    @unique
+  passwordHash     String
+  role             UserRole  @default(CLIENTE)
+  active           Boolean   @default(true)
+  termsAcceptedAt  DateTime?
+  loyaltyConsentAt DateTime? // programa de fidelidade
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  branchId Int?
+  branch   Branch? @relation(fields: [branchId], references: [id])
+}
+
+model Branch {
+  id             Int      @id @default(autoincrement())
+  code           String   @unique // codigo da loja (ex.: "SP-001")
+  name           String
+  isHeadquarters Boolean  @default(false) // matriz da rede
+  city           String
+  state          String   @db.Char(2)
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  users User[]
+}
